@@ -1,0 +1,22 @@
+{
+  "name": "qr-reader",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "ENTRY=background vite build && ENTRY=content vite build",
+    "dev": "ENTRY=background vite build --watch & ENTRY=content vite build --watch"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.0",
+    "@types/chrome": "^0.1.42",
+    "sharp": "^0.34.5",
+    "tailwindcss": "^4.3.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.14"
+  },
+  "dependencies": {
+    "jsqr": "^1.4.0"
+  }
+}
