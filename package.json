@@ -1,20 +1,26 @@
 {
   "name": "qr-reader",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "画像を右クリックしてQRコードを読み取り、別タブで開く",
+  "private": true,
+  "type": "module",
   "scripts": {
-    "build": "ENTRY=background vite build && ENTRY=content vite build",
-    "dev": "ENTRY=background vite build --watch & ENTRY=content vite build --watch"
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "license": "ISC",
   "devDependencies": {
-    "@tailwindcss/vite": "^4.3.0",
+    "@crxjs/vite-plugin": "^2.4.0",
     "@types/chrome": "^0.1.42",
     "sharp": "^0.34.5",
-    "tailwindcss": "^4.3.0",
     "typescript": "^6.0.3",
-    "vite": "^8.0.14"
+    "vite": "^8.0.14",
+    "vitest": "^4.1.6"
   },
   "dependencies": {
     "jsqr": "^1.4.0"
