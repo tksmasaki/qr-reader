@@ -5,22 +5,24 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "dev": "wxt",
+    "build": "npm run generate-icons && wxt build",
+    "zip": "npm run generate-icons && wxt zip",
+    "typecheck": "wxt prepare && tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "generate-icons": "node scripts/generate-icons.mjs",
+    "postinstall": "wxt prepare"
   },
   "engines": {
     "node": ">=20"
   },
   "license": "ISC",
   "devDependencies": {
-    "@crxjs/vite-plugin": "^2.4.0",
     "@types/chrome": "^0.1.42",
     "sharp": "^0.34.5",
     "typescript": "^6.0.3",
-    "vite": "^8.0.14",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.6",
+    "wxt": "^0.20.26"
   },
   "dependencies": {
     "jsqr": "^1.4.0"

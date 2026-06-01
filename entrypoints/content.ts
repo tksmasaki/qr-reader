@@ -3,24 +3,30 @@ import jsQR from "jsqr";
 type ReadQRMessage = { type: "READ_QR"; imageUrl: string };
 type ReadQRResponse = { url: string } | { error: string };
 
-chrome.runtime.onMessage.addListener(
-  (
-    message: ReadQRMessage,
-    sender: chrome.runtime.MessageSender,
-    sendResponse: (response: ReadQRResponse) => void
-  ) => {
-    if (sender.id !== chrome.runtime.id) return false;
-    if (message.type !== "READ_QR") return false;
-
-    readQRFromImage(message.imageUrl)
-      .then((url) => sendResponse({ url }))
-      .catch((err: Error) => sendResponse({ error: err.message }));
-
-    return true;
-  }
-);
-
 const MAX_IMAGE_PX = 8192;
+
+export default defineContentScript({
+  matches: ["<all_urls>"],
+  runAt: "document_idle",
+  main() {
+    chrome.runtime.onMessage.addListener(
+      (
+        message: ReadQRMessage,
+        sender: chrome.runtime.MessageSender,
+        sendResponse: (response: ReadQRResponse) => void
+      ) => {
+        if (sender.id !== chrome.runtime.id) return false;
+        if (message.type !== "READ_QR") return false;
+
+        readQRFromImage(message.imageUrl)
+          .then((url) => sendResponse({ url }))
+          .catch((err: Error) => sendResponse({ error: err.message }));
+
+        return true;
+      }
+    );
+  },
+});
 
 async function readQRFromImage(imageUrl: string): Promise<string> {
   const parsed = new URL(imageUrl);
