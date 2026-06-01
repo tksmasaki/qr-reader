@@ -1,6 +1,6 @@
 import jsQR from "jsqr";
 import { isAllowedImageScheme, isOpenableUrl } from "../lib/url";
-import { loadSettings } from "../lib/settings";
+import { setLastResult, type LastResult } from "../lib/result";
 
 const MENU_ID = "read-qr-code";
 // Downscale the longer side to this so the message stays small while still
@@ -10,53 +10,6 @@ const MAX_DIMENSION = 2048;
 type PixelResult =
   | { ok: true; data: number[]; width: number; height: number }
   | { ok: false; error: string };
-
-type ToastKind = "success" | "error";
-
-// Injected into the tab to render a self-dismissing toast. Serialized and run
-// in the page context, so it must be self-contained (args + browser APIs only).
-// Uses a Shadow DOM host to stay isolated from the page's styles, and sets the
-// message via textContent to avoid any HTML injection.
-function renderToast(message: string, kind: string): void {
-  const HOST_ID = "__qr-reader-toast__";
-  let host = document.getElementById(HOST_ID);
-  if (!host) {
-    host = document.createElement("div");
-    host.id = HOST_ID;
-    host.style.cssText =
-      "position:fixed;top:16px;right:16px;z-index:2147483647;pointer-events:none;";
-    (document.body || document.documentElement).appendChild(host);
-  }
-  const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" });
-  const box = document.createElement("div");
-  box.style.cssText =
-    "font:13px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;" +
-    "max-width:340px;padding:10px 14px;border-radius:8px;color:#fff;" +
-    "box-shadow:0 4px 12px rgba(0,0,0,.3);white-space:pre-wrap;word-break:break-all;" +
-    "background:" + (kind === "success" ? "#2e7d32" : "#c62828") + ";";
-  box.textContent = message;
-  shadow.replaceChildren(box);
-  clearTimeout(Number(host.dataset.qrToastTimer));
-  host.dataset.qrToastTimer = String(setTimeout(() => host.remove(), 4000));
-}
-
-// Show an in-page toast in the given tab. Best-effort: on pages where injection
-// is not allowed (e.g. chrome://) it just logs.
-async function showToast(
-  tabId: number,
-  message: string,
-  kind: ToastKind
-): Promise<void> {
-  try {
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      func: renderToast,
-      args: [message, kind],
-    });
-  } catch (e) {
-    console.error("[QR Reader] toast failed:", e);
-  }
-}
 
 // Injected into the active tab on demand. It is serialized and runs in the page
 // context, so it cannot reference imports or module-scope values (only its
@@ -111,11 +64,30 @@ async function grabImagePixels(
   }
 }
 
+// Store the result and open the toolbar popup to show it. openPopup() needs
+// Chrome 127+ and a target window (without windowId it throws "Could not find
+// an active browser window" from a service worker). If it fails, fall back to a
+// badge so the user can click the toolbar icon to see the (already stored)
+// result.
+async function presentResult(
+  result: LastResult,
+  windowId: number
+): Promise<void> {
+  await setLastResult(result);
+  try {
+    await chrome.action.openPopup({ windowId });
+  } catch (e) {
+    console.error("[QR Reader] openPopup failed:", e);
+    await chrome.action.setBadgeText({ text: "!" });
+    await chrome.action.setBadgeBackgroundColor({ color: "#1565c0" });
+  }
+}
+
 export default defineBackground(() => {
   chrome.runtime.onInstalled.addListener(() => {
     chrome.contextMenus.create({
       id: MENU_ID,
-      title: "Read QR code and open",
+      title: "Read QR code",
       contexts: ["image"],
     });
   });
@@ -123,9 +95,13 @@ export default defineBackground(() => {
   chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     if (info.menuItemId !== MENU_ID || !info.srcUrl || !tab?.id) return;
     const tabId = tab.id;
+    const windowId = tab.windowId;
 
     if (!isAllowedImageScheme(info.srcUrl)) {
-      await showToast(tabId, "Unsupported image URL; cannot read it", "error");
+      await presentResult(
+        { kind: "error", message: "Unsupported image URL; cannot read it" },
+        windowId
+      );
       return;
     }
 
@@ -140,7 +116,10 @@ export default defineBackground(() => {
       });
     } catch (e) {
       console.error("[QR Reader]", e);
-      await showToast(tabId, "Cannot read a QR code on this page", "error");
+      await presentResult(
+        { kind: "error", message: "Cannot read a QR code on this page" },
+        windowId
+      );
       return;
     }
 
@@ -148,41 +127,20 @@ export default defineBackground(() => {
     if (!px || !px.ok) {
       const msg = px && !px.ok ? px.error : "Could not read the QR code";
       console.error("[QR Reader]", msg);
-      await showToast(tabId, msg, "error");
+      await presentResult({ kind: "error", message: msg }, windowId);
       return;
     }
 
     const code = jsQR(new Uint8ClampedArray(px.data), px.width, px.height);
     if (!code) {
-      await showToast(tabId, "No QR code found", "error");
+      await presentResult({ kind: "error", message: "No QR code found" }, windowId);
       return;
     }
 
-    const url = code.data;
-    if (!isOpenableUrl(url)) {
-      console.warn("[QR Reader] refusing to open an unsafe-scheme URL");
-      await showToast(tabId, `Did not open an unsafe URL:\n${url}`, "error");
-      return;
-    }
-
-    const { openMode } = await loadSettings();
-    switch (openMode) {
-      case "current-tab":
-        // Navigating the source tab is itself the feedback; a toast would be
-        // wiped by the navigation, so don't show one.
-        chrome.tabs.update(tabId, { url });
-        break;
-      case "new-tab-background":
-        chrome.tabs.create({ url, active: false });
-        await showToast(tabId, `Opened in a background tab:\n${url}`, "success");
-        break;
-      case "new-tab":
-      default:
-        // Toast the source tab first (it shows where we're going — minimal
-        // quishing visibility), then open the decoded URL in a new tab.
-        await showToast(tabId, `Opened the QR code:\n${url}`, "success");
-        chrome.tabs.create({ url });
-        break;
-    }
+    const text = code.data;
+    await presentResult(
+      { kind: "url", url: text, openable: isOpenableUrl(text), tabId },
+      windowId
+    );
   });
 });

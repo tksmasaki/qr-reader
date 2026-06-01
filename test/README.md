@@ -8,16 +8,16 @@ for eyeballing the extension's behavior in a real browser.
 ## `manual-qa.html`
 
 A page that lays out one QR image per case. Right-click each image, run
-"Read QR code and open", and check the in-page toast and the tab that opens.
+"Read QR code", and check the toolbar popup that opens.
 
 | # | Case | Expected |
 |---|------|----------|
-| 1 | `data:` QR | opens a tab + toast |
-| 2 | `blob:` QR (the key case) | opens a tab + toast |
-| 3 | cross-origin (CDN) remote QR | opens (CORS-dependent; needs network) |
-| 4 | non-QR image | "No QR code found" toast |
-| 5 | unsafe scheme (`WIFI:`) | "Did not open an unsafe URL" toast |
-| 6 | unsafe scheme (`javascript:`) | same (not executed) |
+| 1 | `data:` QR | popup shows the URL + Open button; Open visits it |
+| 2 | `blob:` QR (the key case) | popup shows the URL + Open button |
+| 3 | cross-origin (CDN) remote QR | popup shows the URL (read is CORS-dependent; needs network) |
+| 4 | non-QR image | popup shows "No QR code found" |
+| 5 | unsafe scheme (`WIFI:`) | popup shows the decoded text, no Open button |
+| 6 | unsafe scheme (`javascript:`) | popup shows the text, no Open button (not executed) |
 
 ### Usage
 
