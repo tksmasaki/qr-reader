@@ -40,8 +40,14 @@ npm run generate-icons # アイコンを再生成（sharp で SVG → PNG）
 
 ## アーキテクチャ
 
-- **Service worker**（[entrypoints/background.ts](entrypoints/background.ts)）— `image` コンテキストにメニューを登録し、クリックされた画像 URL をコンテンツスクリプトへ送信。返ってきた URL が `http(s)` であれば新しいタブで開く。
-- **Content script**（[entrypoints/content.ts](entrypoints/content.ts)）— 画像を `fetch` し、Canvas に描画して [jsQR](https://github.com/cozmo/jsQR) でデコードする。
+常駐するコンテンツスクリプトは持たず、右クリック時だけ `activeTab` でその場のタブに最小限のコードを注入する設計です。
+
+- **Service worker**（[entrypoints/background.ts](entrypoints/background.ts)）— `image` コンテキストにメニューを登録。クリックされたら `chrome.scripting.executeScript` でアクティブタブにピクセル取得関数を注入し、返ってきたピクセルデータを [jsQR](https://github.com/cozmo/jsQR) でデコード。結果が `http(s)` であれば新しいタブで開く。jsQR は背景側に一度だけ読み込まれ、ページには注入されない。
+- **注入される関数** — 画像を `fetch` して Canvas に描画し、ピクセルデータ（長辺 2048px まで縮小）を返すだけ。`import` を持たない自己完結コードで、ページコンテキストで実行されるため `blob:` / `data:` 画像も読める。
+
+### `<all_urls>` を使わない理由
+
+旧構成は QR デコード用ライブラリ（約 135KB）を含むコンテンツスクリプトを全ページに常時注入し、`host_permissions: ["<all_urls>"]` を要求していました。実際に必要なのは右クリックした瞬間だけなので、`activeTab` + オンデマンド注入に変更し、全サイトへの永続アクセス権を不要にしています。
 
 ## 技術スタック
 
@@ -53,16 +59,15 @@ npm run generate-icons # アイコンを再生成（sharp で SVG → PNG）
 ## 権限
 
 - `contextMenus` — 画像の右クリックメニューを追加
-- `tabs` — デコードした URL を新しいタブで開く
+- `scripting` + `activeTab` — 右クリックしたタブにだけ、その操作を起点に一時的にコードを注入（全サイトへの永続権限は不要）
 - `notifications` — 読み取り結果・失敗をユーザーに通知する
-- `host_permissions: ["<all_urls>"]` — 任意のページ上の画像を取得・解析
 
 ## 安全性
 
-- **URL スキーム検証** — デコード結果が `http://` / `https://` の場合のみタブを開く（`javascript:` / `data:` / `file:` 等は拒否）
+- **最小権限** — `<all_urls>` / `host_permissions` を要求せず、`activeTab` でユーザー操作時のみ対象タブへアクセス
+- **画像 URL スキーム検証** — 注入前に `http` / `https` / `data` / `blob` 以外の画像 URL を拒否
+- **開く URL のスキーム検証** — デコード結果が `http://` / `https://` の場合のみタブを開く（`javascript:` / `data:` / `file:` 等は拒否）
 - **開く URL の可視化** — タブを開く際にデコード結果の URL を通知で提示し、失敗時も無言にせず通知する
-- **送信元の検証** — `sender.id` を拡張機能自身の ID と照合し、外部からのメッセージを拒否
-- **画像サイズ制限** — 8192 × 8192 px を超える画像は処理しない
 - **メモリ解放** — 取得した画像の Object URL は処理後に必ず `revokeObjectURL` で解放
 
 ## ライセンス
