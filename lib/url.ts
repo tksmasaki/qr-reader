@@ -1,9 +1,10 @@
-// 読み取り対象として fetch を許可する画像 URL のスキーム。
-// data: / blob: はページに埋め込まれた画像（拡張自身のコンテキスト由来）なので安全に扱える。
+// Image URL schemes allowed for fetching when reading.
+// data: / blob: are page-embedded images (from the extension's own context),
+// so they are safe to handle.
 const ALLOWED_IMAGE_SCHEMES = ["http:", "https:", "data:", "blob:"];
 
-// デコード結果として新しいタブで開いてよい URL のスキーム。
-// javascript: / data: / file: 等を弾き、ナビゲーションを http(s) に限定する。
+// URL schemes allowed to open in a new tab as a decoded result.
+// Rejects javascript: / data: / file: etc., limiting navigation to http(s).
 const OPENABLE_SCHEMES = ["http:", "https:"];
 
 function schemeOf(url: string): string | null {
@@ -14,13 +15,13 @@ function schemeOf(url: string): string | null {
   }
 }
 
-/** 画像の取得元として許可されたスキームか（http/https/data/blob）。 */
+/** Whether the scheme is allowed as an image source (http/https/data/blob). */
 export function isAllowedImageScheme(url: string): boolean {
   const scheme = schemeOf(url);
   return scheme !== null && ALLOWED_IMAGE_SCHEMES.includes(scheme);
 }
 
-/** デコード結果を新しいタブで開いてよい URL か（http/https のみ）。 */
+/** Whether a decoded-result URL may be opened in a new tab (http/https only). */
 export function isOpenableUrl(url: string): boolean {
   const scheme = schemeOf(url);
   return scheme !== null && OPENABLE_SCHEMES.includes(scheme);
