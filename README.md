@@ -54,11 +54,13 @@ npm run generate-icons # アイコンを再生成（sharp で SVG → PNG）
 
 - `contextMenus` — 画像の右クリックメニューを追加
 - `tabs` — デコードした URL を新しいタブで開く
+- `notifications` — 読み取り結果・失敗をユーザーに通知する
 - `host_permissions: ["<all_urls>"]` — 任意のページ上の画像を取得・解析
 
 ## 安全性
 
-- **URL スキーム検証** — デコード結果が `http://` / `https://` の場合のみタブを開く
+- **URL スキーム検証** — デコード結果が `http://` / `https://` の場合のみタブを開く（`javascript:` / `data:` / `file:` 等は拒否）
+- **開く URL の可視化** — タブを開く際にデコード結果の URL を通知で提示し、失敗時も無言にせず通知する
 - **送信元の検証** — `sender.id` を拡張機能自身の ID と照合し、外部からのメッセージを拒否
 - **画像サイズ制限** — 8192 × 8192 px を超える画像は処理しない
 - **メモリ解放** — 取得した画像の Object URL は処理後に必ず `revokeObjectURL` で解放
