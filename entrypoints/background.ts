@@ -1,5 +1,6 @@
 import jsQR from "jsqr";
 import { isAllowedImageScheme, isOpenableUrl } from "../lib/url";
+import { loadSettings } from "../lib/settings";
 
 const MENU_ID = "read-qr-code";
 // Downscale the longer side to this so the message stays small while still
@@ -158,14 +159,30 @@ export default defineBackground(() => {
     }
 
     const url = code.data;
-    if (isOpenableUrl(url)) {
-      // Toast the source tab first (it shows where we're going — minimal
-      // quishing visibility), then open the decoded URL in a new tab.
-      await showToast(tabId, `Opened the QR code:\n${url}`, "success");
-      chrome.tabs.create({ url });
-    } else {
+    if (!isOpenableUrl(url)) {
       console.warn("[QR Reader] refusing to open an unsafe-scheme URL");
       await showToast(tabId, `Did not open an unsafe URL:\n${url}`, "error");
+      return;
+    }
+
+    const { openMode } = await loadSettings();
+    switch (openMode) {
+      case "current-tab":
+        // Navigating the source tab is itself the feedback; a toast would be
+        // wiped by the navigation, so don't show one.
+        chrome.tabs.update(tabId, { url });
+        break;
+      case "new-tab-background":
+        chrome.tabs.create({ url, active: false });
+        await showToast(tabId, `Opened in a background tab:\n${url}`, "success");
+        break;
+      case "new-tab":
+      default:
+        // Toast the source tab first (it shows where we're going — minimal
+        // quishing visibility), then open the decoded URL in a new tab.
+        await showToast(tabId, `Opened the QR code:\n${url}`, "success");
+        chrome.tabs.create({ url });
+        break;
     }
   });
 });

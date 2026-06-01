@@ -13,6 +13,15 @@ Read QR codes embedded in a page on the spot — no screenshots or separate apps
 
 URLs with a scheme other than `http://` / `https://` are not opened, for safety.
 
+## Options
+
+Open the extension's options page (from `chrome://extensions` → QR Reader →
+"Extension options") to choose what happens with a decoded URL:
+
+- **Open in a new tab** (default) — open in a new foreground tab.
+- **Open in a background tab** — open in a new tab without switching focus.
+- **Open in the current tab** — navigate the current tab to the URL.
+
 ## Install (unpacked)
 
 Requires Node.js 20+.
@@ -65,6 +74,7 @@ it is only needed at the moment of a right-click, it was switched to `activeTab`
 
 - `contextMenus` — add the right-click menu on images.
 - `scripting` + `activeTab` — inject code temporarily into the right-clicked tab only, triggered by that action (no persistent all-sites access). Used both for reading the image and for showing the result toast.
+- `storage` — persist the options-page setting (how to open the decoded URL).
 
 ## Safety
 
