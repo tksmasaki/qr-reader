@@ -2,7 +2,8 @@ import jsQR from "jsqr";
 import { isAllowedImageScheme, isOpenableUrl } from "../lib/url";
 
 const MENU_ID = "read-qr-code";
-// デコードに十分かつメッセージサイズを抑えるため、長辺をこの値まで縮小する。
+// Downscale the longer side to this so the message stays small while still
+// being large enough to decode.
 const MAX_DIMENSION = 2048;
 
 type PixelResult =
@@ -18,10 +19,10 @@ function notify(message: string): void {
   });
 }
 
-// アクティブタブにオンデマンドで注入される関数。シリアライズされてページ
-// コンテキストで実行されるため、import やモジュールスコープの値を参照できない
-// （引数とブラウザ API のみ使用可）。重い jsQR は注入せず、ここでは画像を取得して
-// ピクセルデータを返すだけにし、デコードは背景（service worker）側で行う。
+// Injected into the active tab on demand. It is serialized and runs in the page
+// context, so it cannot reference imports or module-scope values (only its
+// arguments and browser APIs). The heavy jsQR is not injected; this only fetches
+// the image and returns its pixels, and decoding happens in the background.
 async function grabImagePixels(
   srcUrl: string,
   maxDim: number
@@ -29,7 +30,7 @@ async function grabImagePixels(
   try {
     const res = await fetch(srcUrl);
     if (!res.ok) {
-      return { ok: false, error: `画像の取得に失敗しました: ${res.status}` };
+      return { ok: false, error: `Failed to fetch the image: ${res.status}` };
     }
     const blob = await res.blob();
     const objectUrl = URL.createObjectURL(blob);
@@ -37,18 +38,18 @@ async function grabImagePixels(
       const img = await new Promise<HTMLImageElement>((resolve, reject) => {
         const i = new Image();
         i.onload = () => resolve(i);
-        i.onerror = () => reject(new Error("画像の読み込みに失敗しました"));
+        i.onerror = () => reject(new Error("Failed to load the image"));
         i.src = objectUrl;
       });
 
       const w = img.naturalWidth;
       const h = img.naturalHeight;
       if (w === 0 || h === 0) {
-        return { ok: false, error: "画像を読み込めませんでした" };
+        return { ok: false, error: "Could not load the image" };
       }
 
-      // 長辺が maxDim を超える場合のみ縮小（拡大はしない）。描画時にスケールする
-      // ので元サイズの巨大な canvas は確保しない。
+      // Downscale only when the longer side exceeds maxDim (never upscale).
+      // Scaling on draw avoids allocating a full-size canvas.
       const scale = Math.min(1, maxDim / Math.max(w, h));
       const cw = Math.max(1, Math.round(w * scale));
       const ch = Math.max(1, Math.round(h * scale));
@@ -58,7 +59,7 @@ async function grabImagePixels(
       canvas.height = ch;
       const ctx = canvas.getContext("2d");
       if (!ctx) {
-        return { ok: false, error: "Canvas コンテキストの取得に失敗しました" };
+        return { ok: false, error: "Could not get a canvas context" };
       }
       ctx.drawImage(img, 0, 0, cw, ch);
       const imageData = ctx.getImageData(0, 0, cw, ch);
@@ -67,7 +68,7 @@ async function grabImagePixels(
       URL.revokeObjectURL(objectUrl);
     }
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "不明なエラー" };
+    return { ok: false, error: e instanceof Error ? e.message : "Unknown error" };
   }
 }
 
@@ -75,7 +76,7 @@ export default defineBackground(() => {
   chrome.runtime.onInstalled.addListener(() => {
     chrome.contextMenus.create({
       id: MENU_ID,
-      title: "QRコードを読み取って開く",
+      title: "Read QR code and open",
       contexts: ["image"],
     });
   });
@@ -84,12 +85,12 @@ export default defineBackground(() => {
     if (info.menuItemId !== MENU_ID || !info.srcUrl || !tab?.id) return;
 
     if (!isAllowedImageScheme(info.srcUrl)) {
-      notify("対応していない画像 URL のため読み取れません");
+      notify("Unsupported image URL; cannot read it");
       return;
     }
 
-    // 右クリック（コンテキストメニュー）はユーザージェスチャなので、activeTab により
-    // host_permissions なしで当該タブへ一時的に注入できる。
+    // A right-click (context menu) is a user gesture, so activeTab lets us
+    // inject into that tab temporarily without host_permissions.
     let results;
     try {
       results = await chrome.scripting.executeScript({
@@ -99,13 +100,13 @@ export default defineBackground(() => {
       });
     } catch (e) {
       console.error("[QR Reader]", e);
-      notify("このページでは QR コードを読み取れませんでした");
+      notify("Cannot read a QR code on this page");
       return;
     }
 
     const px = results[0]?.result as PixelResult | undefined;
     if (!px || !px.ok) {
-      const msg = px && !px.ok ? px.error : "QR コードを読み取れませんでした";
+      const msg = px && !px.ok ? px.error : "Could not read the QR code";
       console.error("[QR Reader]", msg);
       notify(msg);
       return;
@@ -113,18 +114,18 @@ export default defineBackground(() => {
 
     const code = jsQR(new Uint8ClampedArray(px.data), px.width, px.height);
     if (!code) {
-      notify("QR コードが見つかりませんでした");
+      notify("No QR code found");
       return;
     }
 
     const url = code.data;
     if (isOpenableUrl(url)) {
       chrome.tabs.create({ url });
-      // 開いた先をユーザーに見せる（quishing 対策の最低限の可視化）。
-      notify(`QR コードを開きました:\n${url}`);
+      // Show where the user is going (minimal quishing visibility).
+      notify(`Opened the QR code:\n${url}`);
     } else {
-      console.warn("[QR Reader] 安全でないスキームのURLのため開きません");
-      notify(`安全でない URL のため開きませんでした:\n${url}`);
+      console.warn("[QR Reader] refusing to open an unsafe-scheme URL");
+      notify(`Did not open an unsafe URL:\n${url}`);
     }
   });
 });

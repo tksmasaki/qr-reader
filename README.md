@@ -8,7 +8,7 @@ Read QR codes embedded in a page on the spot — no screenshots or separate apps
 ## Usage
 
 1. **Right-click** a QR code image on the page.
-2. Choose **"QRコードを読み取って開く"** from the context menu.
+2. Choose **"Read QR code and open"** from the context menu.
 3. The decoded URL opens in a new tab.
 
 URLs with a scheme other than `http://` / `https://` are not opened, for safety.
