@@ -65,4 +65,4 @@ npm run generate-icons # アイコンを再生成（sharp で SVG → PNG）
 
 ## ライセンス
 
-ISC
+MIT
