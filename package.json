@@ -1,7 +1,7 @@
 {
   "name": "qr-reader",
   "version": "1.0.0",
-  "description": "画像を右クリックしてQRコードを読み取り、別タブで開く",
+  "description": "Right-click an image to read its QR code and open the decoded URL in a new tab.",
   "private": true,
   "type": "module",
   "scripts": {
