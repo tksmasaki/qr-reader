@@ -1,38 +1,41 @@
-# 手動 QA
+# Manual QA
 
-QR デコードはブラウザの DOM / Chrome API に依存し、CI のユニットテストでは検証できません
-（スキーム検証など純粋なロジックは [`lib/url.test.ts`](../lib/url.ts) がカバーしています）。
-このディレクトリは、実ブラウザで拡張の挙動を目視確認するための**手動 QA 用フィクスチャ**です。
+QR decoding depends on the browser DOM / Chrome APIs and can't be verified in
+CI (the pure logic, such as scheme validation, is covered by
+[`lib/url.test.ts`](../lib/url.ts)). This directory holds **manual QA fixtures**
+for eyeballing the extension's behavior in a real browser.
 
 ## `manual-qa.html`
 
-各ケースの QR 画像を 1 ページに並べた確認用ページ。各画像を右クリックして
-「QRコードを読み取って開く」を実行し、通知と開かれるタブを確認します。
+A page that lays out one QR image per case. Right-click each image, run
+"QRコードを読み取って開く", and check the notification and the tab that opens.
 
-| # | ケース | 期待 |
-|---|--------|------|
-| 1 | `data:` の QR | タブで開く + 通知 |
-| 2 | `blob:` の QR（本命） | タブで開く + 通知 |
-| 3 | 別ドメイン(CDN)のリモート QR | 開く（CORS 次第・要ネットワーク） |
-| 4 | QR でない画像 | 「QRコードが見つかりませんでした」通知 |
-| 5 | 危険スキーム（`WIFI:`） | 「安全でない URL のため開きませんでした」通知 |
-| 6 | 危険スキーム（`javascript:`） | 同上（実行されない） |
+| # | Case | Expected |
+|---|------|----------|
+| 1 | `data:` QR | opens a tab + notification |
+| 2 | `blob:` QR (the key case) | opens a tab + notification |
+| 3 | cross-origin (CDN) remote QR | opens (CORS-dependent; needs network) |
+| 4 | non-QR image | "QRコードが見つかりませんでした" notification |
+| 5 | unsafe scheme (`WIFI:`) | "安全でない URL のため開きませんでした" notification |
+| 6 | unsafe scheme (`javascript:`) | same (not executed) |
 
-### 使い方
+### Usage
 
 ```sh
-npm run build   # .output/chrome-mv3/ を生成し、chrome://extensions で読み込む
-python3 -m http.server   # リポジトリ直下で実行
-# → http://localhost:8000/test/manual-qa.html を開く
+npm run build   # build .output/chrome-mv3/ and load it via chrome://extensions
+python3 -m http.server   # run from the repo root
+# open http://localhost:8000/test/manual-qa.html
 ```
 
-`file://` で開く場合は、`chrome://extensions` で本拡張の「ファイルの URL へのアクセスを許可する」を ON に。
-`chrome://` などの特権ページでは `activeTab` 注入ができないため読み取れません（仕様）。
+When opening via `file://`, enable "Allow access to file URLs" for this
+extension in `chrome://extensions`. Privileged pages like `chrome://` cannot be
+read because `activeTab` injection is not allowed there (by design).
 
-### QR フィクスチャの再生成
+### Regenerating the QR fixtures
 
-埋め込みの QR 画像は [`qrcode-generator`](https://www.npmjs.com/package/qrcode-generator)
-で事前生成した `data:` URI です。内容を変えたい場合は次のように再生成します。
+The embedded QR images are `data:` URIs pre-generated with
+[`qrcode-generator`](https://www.npmjs.com/package/qrcode-generator). To change
+the contents, regenerate like this:
 
 ```sh
 npm i qrcode-generator
@@ -43,4 +46,5 @@ node -e '
 '
 ```
 
-得られた `data:image/gif;base64,...` を `manual-qa.html` の対応する `<img src>` に貼り替えます。
+Paste the resulting `data:image/gif;base64,...` into the matching `<img src>` in
+`manual-qa.html`.
