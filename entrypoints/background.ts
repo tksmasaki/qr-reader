@@ -10,13 +10,51 @@ type PixelResult =
   | { ok: true; data: number[]; width: number; height: number }
   | { ok: false; error: string };
 
-function notify(message: string): void {
-  chrome.notifications.create({
-    type: "basic",
-    iconUrl: chrome.runtime.getURL("icon128.png"),
-    title: "QR Reader",
-    message,
-  });
+type ToastKind = "success" | "error";
+
+// Injected into the tab to render a self-dismissing toast. Serialized and run
+// in the page context, so it must be self-contained (args + browser APIs only).
+// Uses a Shadow DOM host to stay isolated from the page's styles, and sets the
+// message via textContent to avoid any HTML injection.
+function renderToast(message: string, kind: string): void {
+  const HOST_ID = "__qr-reader-toast__";
+  let host = document.getElementById(HOST_ID);
+  if (!host) {
+    host = document.createElement("div");
+    host.id = HOST_ID;
+    host.style.cssText =
+      "position:fixed;top:16px;right:16px;z-index:2147483647;pointer-events:none;";
+    (document.body || document.documentElement).appendChild(host);
+  }
+  const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" });
+  const box = document.createElement("div");
+  box.style.cssText =
+    "font:13px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;" +
+    "max-width:340px;padding:10px 14px;border-radius:8px;color:#fff;" +
+    "box-shadow:0 4px 12px rgba(0,0,0,.3);white-space:pre-wrap;word-break:break-all;" +
+    "background:" + (kind === "success" ? "#2e7d32" : "#c62828") + ";";
+  box.textContent = message;
+  shadow.replaceChildren(box);
+  clearTimeout(Number(host.dataset.qrToastTimer));
+  host.dataset.qrToastTimer = String(setTimeout(() => host.remove(), 4000));
+}
+
+// Show an in-page toast in the given tab. Best-effort: on pages where injection
+// is not allowed (e.g. chrome://) it just logs.
+async function showToast(
+  tabId: number,
+  message: string,
+  kind: ToastKind
+): Promise<void> {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: renderToast,
+      args: [message, kind],
+    });
+  } catch (e) {
+    console.error("[QR Reader] toast failed:", e);
+  }
 }
 
 // Injected into the active tab on demand. It is serialized and runs in the page
@@ -83,9 +121,10 @@ export default defineBackground(() => {
 
   chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     if (info.menuItemId !== MENU_ID || !info.srcUrl || !tab?.id) return;
+    const tabId = tab.id;
 
     if (!isAllowedImageScheme(info.srcUrl)) {
-      notify("Unsupported image URL; cannot read it");
+      await showToast(tabId, "Unsupported image URL; cannot read it", "error");
       return;
     }
 
@@ -94,13 +133,13 @@ export default defineBackground(() => {
     let results;
     try {
       results = await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
+        target: { tabId },
         func: grabImagePixels,
         args: [info.srcUrl, MAX_DIMENSION],
       });
     } catch (e) {
       console.error("[QR Reader]", e);
-      notify("Cannot read a QR code on this page");
+      await showToast(tabId, "Cannot read a QR code on this page", "error");
       return;
     }
 
@@ -108,24 +147,25 @@ export default defineBackground(() => {
     if (!px || !px.ok) {
       const msg = px && !px.ok ? px.error : "Could not read the QR code";
       console.error("[QR Reader]", msg);
-      notify(msg);
+      await showToast(tabId, msg, "error");
       return;
     }
 
     const code = jsQR(new Uint8ClampedArray(px.data), px.width, px.height);
     if (!code) {
-      notify("No QR code found");
+      await showToast(tabId, "No QR code found", "error");
       return;
     }
 
     const url = code.data;
     if (isOpenableUrl(url)) {
+      // Toast the source tab first (it shows where we're going — minimal
+      // quishing visibility), then open the decoded URL in a new tab.
+      await showToast(tabId, `Opened the QR code:\n${url}`, "success");
       chrome.tabs.create({ url });
-      // Show where the user is going (minimal quishing visibility).
-      notify(`Opened the QR code:\n${url}`);
     } else {
       console.warn("[QR Reader] refusing to open an unsafe-scheme URL");
-      notify(`Did not open an unsafe URL:\n${url}`);
+      await showToast(tabId, `Did not open an unsafe URL:\n${url}`, "error");
     }
   });
 });

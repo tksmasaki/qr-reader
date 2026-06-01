@@ -44,8 +44,8 @@ npm run generate-icons # regenerate icons (SVG -> PNG via sharp)
 There is no always-on content script; code is injected into the current tab via
 `activeTab` only on a right-click.
 
-- **Service worker** ([entrypoints/background.ts](entrypoints/background.ts)) — registers the `image` context menu. On click it injects a pixel-grabbing function into the active tab with `chrome.scripting.executeScript`, then decodes the returned pixels with [jsQR](https://github.com/cozmo/jsQR). If the result is an `http(s)` URL it opens a new tab. jsQR is loaded once in the background and is never injected into pages.
-- **Injected function** — fetches the image, draws it to a canvas, and returns the pixel data (downscaled so the longer side is ≤ 2048px). It is self-contained with no `import`s and runs in the page context, so `blob:` / `data:` images can be read.
+- **Service worker** ([entrypoints/background.ts](entrypoints/background.ts)) — registers the `image` context menu. On click it injects a pixel-grabbing function into the active tab with `chrome.scripting.executeScript`, then decodes the returned pixels with [jsQR](https://github.com/cozmo/jsQR). If the result is an `http(s)` URL it opens a new tab. Feedback is shown as an in-page toast injected the same way. jsQR is loaded once in the background and is never injected into pages.
+- **Injected functions** — one fetches the image, draws it to a canvas, and returns the pixel data (downscaled so the longer side is ≤ 2048px); another renders a small toast in a Shadow DOM. Both are self-contained with no `import`s and run in the page context, so `blob:` / `data:` images can be read.
 
 ### Why no `<all_urls>`
 
@@ -64,15 +64,14 @@ it is only needed at the moment of a right-click, it was switched to `activeTab`
 ## Permissions
 
 - `contextMenus` — add the right-click menu on images.
-- `scripting` + `activeTab` — inject code temporarily into the right-clicked tab only, triggered by that action (no persistent all-sites access).
-- `notifications` — notify the user of the result or failure.
+- `scripting` + `activeTab` — inject code temporarily into the right-clicked tab only, triggered by that action (no persistent all-sites access). Used both for reading the image and for showing the result toast.
 
 ## Safety
 
 - **Least privilege** — no `<all_urls>` / `host_permissions`; `activeTab` grants access to the target tab only on a user action.
 - **Image URL scheme check** — before injecting, reject image URLs whose scheme is not `http` / `https` / `data` / `blob`.
 - **Opened URL scheme check** — only open the decoded result when it is `http://` / `https://` (`javascript:` / `data:` / `file:` etc. are rejected).
-- **Opened URL visibility** — show the decoded URL in a notification when opening a tab, and never fail silently.
+- **Opened URL visibility** — show the decoded URL in an in-page toast when opening a tab, and never fail silently (privileged pages like `chrome://` can't show a toast; those only log to the console).
 - **Memory release** — the image's Object URL is always freed with `revokeObjectURL` after processing.
 
 ## License
