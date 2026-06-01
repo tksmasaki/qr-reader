@@ -1,4 +1,5 @@
 import jsQR from "jsqr";
+import { isAllowedImageScheme } from "../lib/url";
 
 type ReadQRMessage = { type: "READ_QR"; imageUrl: string };
 type ReadQRResponse = { url: string } | { error: string };
@@ -29,8 +30,7 @@ export default defineContentScript({
 });
 
 async function readQRFromImage(imageUrl: string): Promise<string> {
-  const parsed = new URL(imageUrl);
-  if (!["https:", "http:"].includes(parsed.protocol)) {
+  if (!isAllowedImageScheme(imageUrl)) {
     throw new Error("対応していないURLスキームです");
   }
 

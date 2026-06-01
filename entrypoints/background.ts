@@ -1,3 +1,5 @@
+import { isOpenableUrl } from "../lib/url";
+
 const MENU_ID = "read-qr-code";
 
 export default defineBackground(() => {
@@ -29,7 +31,7 @@ export default defineBackground(() => {
           return;
         }
         const { url } = response;
-        if (/^https?:\/\//i.test(url)) {
+        if (isOpenableUrl(url)) {
           chrome.tabs.create({ url });
         } else {
           console.warn("[QR Reader] 安全でないスキームのURLのため開きません");
