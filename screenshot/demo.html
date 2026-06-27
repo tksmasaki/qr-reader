@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>QR Reader — store screenshot</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    width: 1280px; height: 800px; overflow: hidden;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #f6f8fc; color: #202124;
+    position: relative;
+  }
+
+  /* ---- the QR sitting on a page ---- */
+  .stage { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; }
+  .stage .qr { width: 260px; height: 260px; image-rendering: pixelated; border-radius: 14px; border: 1px solid #e6e8eb; background: #fff; padding: 18px; box-shadow: 0 2px 12px rgba(16,24,40,.07); }
+  .stage .hint { font-size: 16px; color: #5f6368; }
+  .stage .hint b { color: #202124; font-weight: 600; }
+
+  /* ---- right-click context menu mock ---- */
+  .menu {
+    position: absolute; left: 690px; top: 392px;
+    background: #fff; border: 1px solid #e3e3e3; border-radius: 8px;
+    box-shadow: 0 8px 28px rgba(16,24,40,.22); padding: 6px 0; min-width: 244px;
+    font-size: 14px; color: #3c4043;
+  }
+  .menu .row { padding: 8px 16px; display: flex; align-items: center; gap: 11px; white-space: nowrap; }
+  .menu .row .gap { width: 18px; display: inline-block; }
+  .menu .row.hl { background: #1a73e8; color: #fff; }
+  .menu .row.hl img { width: 18px; height: 18px; image-rendering: pixelated; border-radius: 3px; background: #fff; padding: 1px; }
+  .menu .sep { height: 1px; background: #ececec; margin: 6px 0; }
+
+  /* ---- QR Reader toolbar popup ---- */
+  .popup {
+    position: absolute; right: 28px; top: 76px; width: 344px;
+    background: #202124; color: #e8eaed; border-radius: 14px;
+    box-shadow: 0 14px 48px rgba(16,24,40,.38); padding: 17px 19px;
+  }
+  .popup .head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .popup .head img { width: 24px; height: 24px; image-rendering: pixelated; border-radius: 5px; background: #fff; padding: 1px; box-sizing: border-box; }
+  .popup .head .name { font-weight: 600; font-size: 15px; }
+  .popup .cap { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: #9aa0a6; margin-bottom: 7px; }
+  .popup .url {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13.5px; line-height: 1.5;
+    background: #2d2e31; border: 1px solid #3c4043; border-radius: 9px; padding: 11px 13px; word-break: break-all;
+  }
+  .popup .actions { display: flex; justify-content: flex-end; margin-top: 16px; }
+  .popup .open { background: #8ab4f8; color: #202124; font-weight: 700; font-size: 14px; border-radius: 9px; padding: 9px 26px; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="hint"><b>Right-click</b> a QR code on any page, then choose <b>Read QR code</b>.</div>
+    <img class="qr" src="demo-qr.png" alt="QR code">
+  </div>
+
+  <!-- right-click context menu -->
+  <div class="menu">
+    <div class="row"><span class="gap"></span>Open image in new tab</div>
+    <div class="row"><span class="gap"></span>Save image as…</div>
+    <div class="row"><span class="gap"></span>Copy image</div>
+    <div class="sep"></div>
+    <div class="row hl"><img src="demo-qr.png" alt="">Read QR code</div>
+    <div class="row"><span class="gap"></span>Inspect</div>
+  </div>
+
+  <!-- QR Reader toolbar popup showing the decoded URL -->
+  <div class="popup">
+    <div class="head"><img src="demo-qr.png" alt=""><div class="name">QR Reader</div></div>
+    <div class="cap">Decoded URL</div>
+    <div class="url">https://example.com/</div>
+    <div class="actions"><div class="open">Open</div></div>
+  </div>
+</body>
+</html>
